@@ -1,8 +1,8 @@
 Token2 Molto2 USB Config Tool, Python version
 =============================================
 
-This is a command line tool to configure the Molto2 / Molto2v2, a multi-profile TOTP
-hardware token by [Token2](https://www.token2.com/). A simple PyQt5 GUI is also included.
+This is a command line tool to configure the Molto2v2, a multi-profile TOTP
+hardware token by [Token2](https://www.token2.swiss/). A simple PyQt5 GUI is also included.
 
 The steps below are written for Ubuntu, but they should be the same or similar on any
 other Linux distribution.
@@ -141,8 +141,7 @@ variant, `gui-single.py`, embeds the device logic directly and can be run on its
 
 Supported products
 ------------------
-* [Token2 Molto2](https://www.token2.com/)
-* [Token2 Molto2v2](https://www.token2.com/)
+* [Token2 Molto2v2]([https://www.token2.com/](https://www.token2.swiss/shop/product/molto-2-v2-multi-profile-totp-programmable-hardware-token))
 
 See the "Device compatibility" note above regarding third-party clones.
 
