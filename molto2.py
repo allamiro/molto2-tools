@@ -103,8 +103,12 @@ else:
 
 # Check Profile title
 if args.title is not None:
-    if len(args.title) > 12:
-        die("[!] Profile title cannot be longer than 12 symbols")
+    # The device title field holds at most 12 bytes. Validate the encoded
+    # byte length, not the character count: a 12-character string containing
+    # multibyte UTF-8 characters can exceed 12 bytes and overflow the single
+    # 16-byte block the title APDU is built around.
+    if len(args.title.encode("utf-8")) > 12:
+        die("[!] Profile title cannot be longer than 12 bytes (UTF-8)")
 
 # Default customer key
 if args.key is None and args.keyascii is None:
@@ -341,16 +345,19 @@ if args.title is not None:
     ins = 0xD5
     p1 = 0x00
     p2 = profile_number
-    lc = 0x14
     sm4 = SM4Key(key_sha1)
     title = args.title.encode("utf-8")
     if len(title) % 16 != 0:
         title += b'\x80' + b'\x00' * (15 - len(title) % 16)
     # print  (f"Setting title {title}")
     enc_title = sm4.encrypt(title)
-    mac_packet = unhexlify("80D500" + prof + "10") + enc_title
+    # Derive the MAC header length and Lc from the actual encrypted size
+    # instead of hardcoding a single 16-byte block.
+    enc_len = hex(len(enc_title))[2:].zfill(2)
+    mac_packet = unhexlify("80D500" + prof + enc_len) + enc_title
     mac = calc_mac(key_sha1, mac_packet)
     data = enc_title + mac
+    lc = len(data)
     apdu = [cla, ins, p1, p2, lc]
     apdu.extend(data)
 
