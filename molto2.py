@@ -253,7 +253,7 @@ if args.deleteseed is True:
     if success(sw1):
         print(f"[+] Seed deleted successfully for profile [#{args.profile}]")
     else:
-        print(f"[!] Seed delete failed for profile [#{args.profile}] SW: {hex(sw1)}{hex(_sw2)}")
+        die(f"[!] Seed delete failed for profile [#{args.profile}] SW: {hex(sw1)}{hex(_sw2)}")
 
 # Lock
 
@@ -270,6 +270,8 @@ if args.lock is True:
 
     if success(sw1):
         print(f"[+] Device screen locked")
+    else:
+        die(f"[!] Lock failed (SW={hex(sw1)}{hex(_sw2)})")
 
 # Unlock
 
@@ -287,6 +289,8 @@ if args.unlock is True:
 
     if success(sw1):
         print(f"[+] Device screen unlocked")
+    else:
+        die(f"[!] Unlock failed (SW={hex(sw1)}{hex(_sw2)})")
 
 # start setting seed
 if seed is not None:
@@ -334,6 +338,8 @@ if seed is not None:
     _data, sw1, _sw2 = connection.transmit(apdu)
     if success(sw1):
         print(f"[+] Seed was set successfully")
+    else:
+        die(f"[!] Seed write failed for profile [#{args.profile}] (SW={hex(sw1)}{hex(_sw2)})")
 
 if args.title is not None:
     print(f"[i] Setting profile title as '{args.title}' for profile [#{args.profile}]")
@@ -357,6 +363,8 @@ if args.title is not None:
     _data, sw1, _sw2 = connection.transmit(apdu)
     if success(sw1):
         print(f"[+] Title was set successfully")
+    else:
+        die(f"[!] Title write failed for profile [#{args.profile}] (SW={hex(sw1)}{hex(_sw2)})")
 
 if args.config is True:
     print("[i] Setting configuration")
@@ -425,7 +433,7 @@ if args.config is True:
     if success(sw1):
         print(f"[+] Config was set successfully for profile [#{args.profile}]")
     else:
-        print(f"[!] Config failed for  [#{args.profile}]")
+        die(f"[!] Config failed for [#{args.profile}] (SW={hex(sw1)}{hex(_sw2)})")
 
 hexkey = ""
 
@@ -461,6 +469,8 @@ if hexkey != "":
         print(f"[+] New customer key request was successfully sent to the device.")
         print(f"[!] Complete the operation by confirming on the device.")
         print(f"[!] You need to press the up arrow (▲) button for confirmation")
+    else:
+        die(f"[!] Set customer key failed (SW={hex(sw1)}{hex(_sw2)})")
 
 if args.synctime is True or args.synctimeall is True:
     if args.synctime is True:
@@ -470,6 +480,7 @@ if args.synctime is True or args.synctimeall is True:
         print(f"[i] Syncing time on all profiles")
         sync_profiles = range(100)
 
+    sync_had_error = False
     for profnumber in sync_profiles:
         profile_number = int(profnumber)
         prof = hex(profile_number)[2:].zfill(2)
@@ -498,4 +509,8 @@ if args.synctime is True or args.synctimeall is True:
         if success(sw1):
             print(f"[+] Time was set successfully for profile [#{profile_number}]")
         else:
-            print(f"[!] Time sync failed for  [#{profile_number}]")
+            print(f"[!] Time sync failed for  [#{profile_number}] (SW={hex(sw1)}{hex(_sw2)})")
+            sync_had_error = True
+
+    if sync_had_error:
+        die("[!] One or more profiles failed to time-sync.")
