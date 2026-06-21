@@ -310,8 +310,10 @@ if seed is not None:
 
     print(f"[i] Writing seed:  '{seed.upper()}'  for profile [#{args.profile}] ")
     seed = unhexlify(seed)
-    if seed == b'\x00' * 20:
-        # Deleting seed
+    if is_deleting:
+        # Clearing the profile: an all-zero seed is the reserved delete value.
+        # Use the same definition as the existence-check skip above (an
+        # all-zero seed of any length), and zero-pad without the 0x80 marker.
         seed += b'\x00' * (16 - len(seed) % 16)
     else:
         seed += b'\x80' + b'\x00' * (15 - len(seed) % 16)
