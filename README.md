@@ -206,6 +206,18 @@ Supported products
 
 See the "Device compatibility" note above regarding third-party clones.
 
+Development and tests
+---------------------
+The device logic in `molto2.py` is importable, so the cryptography and APDU
+construction can be unit-tested without a device. The tests need only `sm4`
+(no pyscard or hardware):
+
+    pip install -r requirements-dev.txt
+    pytest
+
+The same checks (byte-compile, lint, unit tests) run in CI via GitHub Actions
+on every push and pull request — see [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
 License
 -------
 This project is released under the MIT License. See [LICENSE.md](LICENSE.md) for details.

@@ -13,7 +13,6 @@
 
 
 import sys
-from smartcard.System import readers
 from binascii import unhexlify, hexlify
 from datetime import datetime
 import hashlib
@@ -21,6 +20,10 @@ import base64
 from sm4 import SM4Key
 from time import time as timestamp
 import argparse
+
+# Note: pyscard (smartcard.*) is imported lazily inside find_token2_reader()
+# so the pure helpers and operation functions can be imported and unit-tested
+# without pyscard or its system dependencies installed.
 
 DEFAULT_CUSTOMER_KEY = "544F4B454E324D4F4C544F312D4B4559"
 
@@ -111,6 +114,7 @@ def die(message):
 
 
 def find_token2_reader():
+    from smartcard.System import readers
     return next((reader for reader in readers()
                  if "TOKEN2".lower() in reader.name.lower()), None)
 
