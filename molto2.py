@@ -14,7 +14,7 @@
 
 import sys
 from binascii import unhexlify, hexlify
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import base64
 from sm4 import SM4Key
@@ -184,7 +184,7 @@ def read_device_info(connection):
     time_offset = 4 + serial_len + 2
     time_len = 4
     time = int.from_bytes(info[time_offset:time_offset + time_len], "big")
-    time = datetime.utcfromtimestamp(time).strftime("%Y-%m-%d %H:%M:%S")
+    time = datetime.fromtimestamp(time, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     return serial, time
 
 
@@ -276,7 +276,12 @@ def factory_reset(connection):
     _data, sw1, _sw2 = connection.transmit(SELECT)
     print(f"[i] Factory reset")
     print(f"[i] Resetting the device to factory settings. Please note that this will delete all profiles and set the customer key to default")
-    die(f"[!] PLEASE CONFIRM THE CHANGE ON THE DEVICE BY PRESSING the ▲ KEY!")
+    if not success(sw1):
+        die(f"[!] Factory reset request failed (SW={hex(sw1)}{hex(_sw2)})")
+    # The request was accepted; it only commits after the on-device button press.
+    # This is a successful send, so report success (exit 0), not failure.
+    print(f"[+] Factory reset request sent — PLEASE CONFIRM ON THE DEVICE BY PRESSING the ▲ KEY!")
+    sys.exit(0)
 
 
 def delete_seed(connection, args, profile_number):
@@ -507,8 +512,8 @@ def sync_time(connection, key_sha1, args):
         profile_number = int(profnumber)
         prof = hex(profile_number)[2:].zfill(2)
         print(f"Syncing time for profile #{profile_number}")
-        # Get current time
-        time = int(timestamp())
+        # Honour --timevalue if supplied (matches --config), else use now.
+        time = int(args.timevalue) if args.timevalue is not None else int(timestamp())
         # Construct command data
         data = build_sync_tlv(time)
         mac_d = len(data)
@@ -580,7 +585,17 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
 
     connection = connect()
+    try:
+        run_session(connection, args)
+    finally:
+        # Always release the PC/SC connection, even on error or early exit.
+        try:
+            connection.disconnect()
+        except Exception:
+            pass
 
+
+def run_session(connection, args):
     print(f"==========================================================")
     print(f" [i] TOKEN2 Molto2 USB Config Tool, Python version, v0.2")
     print(f"                                         (c) TOKEN2 Sarl ")

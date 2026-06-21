@@ -178,13 +178,24 @@ def test_apply_config_apdu_matches_independent_construction():
 
 def test_sync_time_apdu_matches_independent_construction():
     m.timestamp = lambda: 1700000000
-    args = Namespace(synctime=True, synctimeall=False, profile="2")
+    args = Namespace(synctime=True, synctimeall=False, profile="2", timevalue=None)
     got = _run(m.sync_time, KEY, args)[-1]
 
     tlv = unhexlify("81060f046553f100")
     mac = m.calc_mac(KEY, unhexlify("80D40102" + "08") + tlv)
     expected = [0x84, 0xD4, 0x01, 2, len(tlv + mac)] + list(tlv + mac)
     assert got == expected
+
+
+def test_sync_time_honours_timevalue():
+    # #15: --timevalue must be used by time sync (as it is by --config),
+    # not silently replaced with the current clock.
+    m.timestamp = lambda: 1  # would produce a different TLV if (wrongly) used
+    args = Namespace(synctime=True, synctimeall=False, profile="2", timevalue=1700000000)
+    got = _run(m.sync_time, KEY, args)[-1]
+    tlv = unhexlify("81060f046553f100")  # TLV for 1700000000
+    mac = m.calc_mac(KEY, unhexlify("80D40102" + "08") + tlv)
+    assert got == [0x84, 0xD4, 0x01, 2, len(tlv + mac)] + list(tlv + mac)
 
 
 def test_write_seed_delete_path_apdu():
@@ -233,6 +244,57 @@ def test_operations_exit_nonzero_on_bad_status(fn, args):
 def test_set_title_success_does_not_exit():
     with redirect_stdout(io.StringIO()):
         m.set_title(MockConn(sw1=0x90), KEY, "02", 2, Namespace(title="x", profile="2"))
+
+
+def test_factory_reset_success_exits_zero(capsys=None):
+    # #16: a successful send must report success (exit 0), not failure (exit 1).
+    with pytest.raises(SystemExit) as exc:
+        with redirect_stdout(io.StringIO()) as buf:
+            m.factory_reset(MockConn(sw1=0x90))
+    assert exc.value.code == 0
+    assert "[+]" in buf.getvalue()
+
+
+def test_factory_reset_failure_exits_nonzero():
+    with pytest.raises(SystemExit) as exc:
+        with redirect_stdout(io.StringIO()):
+            m.factory_reset(MockConn(sw1=0x6A))
+    assert exc.value.code != 0
+
+
+def test_read_device_info_formats_utc_time():
+    # #19: fromtimestamp(..., tz=utc) yields the same formatted string as the
+    # old utcfromtimestamp. Epoch 1700000000 == 2023-11-14 22:13:20 UTC.
+    class Conn:
+        def transmit(self, apdu):
+            # header(3) + len(1)=4 + "1234" + sep(2) + time(4 bytes BE)
+            t = (1700000000).to_bytes(4, "big")
+            return ([0, 0, 0, 4, 49, 50, 51, 52, 0, 0] + list(t), 0x90, 0x00)
+    serial, dev_time = m.read_device_info(Conn())
+    assert serial == "1234"
+    assert dev_time == "2023-11-14 22:13:20"
+
+
+def test_main_disconnects_connection_via_finally():
+    # #20: the PC/SC connection must be released even on the happy path.
+    class RecordingConn:
+        def __init__(self):
+            self.disconnected = False
+        def transmit(self, apdu):
+            ins = apdu[1]
+            if ins == 0x41:
+                return ([0, 0, 0, 4, 49, 50, 51, 52, 0, 0, 0, 0, 0, 0], 0x90, 0x00)
+            if ins == 0x4b:
+                return ([0] * 8, 0x90, 0x00)
+            return ([], 0x90, 0x00)
+        def disconnect(self):
+            self.disconnected = True
+
+    conn = RecordingConn()
+    m.connect = lambda: conn
+    with redirect_stdout(io.StringIO()):
+        m.main(["--lock"])
+    assert conn.disconnected is True
 
 
 def test_authenticate_fails_closed_on_unexpected_status():
