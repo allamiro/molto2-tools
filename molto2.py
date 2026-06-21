@@ -237,6 +237,11 @@ if sw1 == 99:
     die(f"[-] Make sure you entered the correct access key / password")
 if success(sw1):
     print(f"[+] Authentication successful")
+else:
+    # Fail closed: any status word other than 0x90 (success) or 0x63 (auth
+    # failure, handled above) means we are NOT authenticated. Do not fall
+    # through and issue secure commands as if the handshake had succeeded.
+    die(f"[-] Authentication returned unexpected status {hex(sw1)} {hex(sw2)}")
 
 # Delete seed (requires an authenticated session)
 if args.deleteseed is True:
